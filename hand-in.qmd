@@ -1,0 +1,1087 @@
+---
+title: "Hand-in Modality - Bayesian Modeling 2026 - Prof. Dr. Michael Höhle - University of Greifswald"
+author: "Felix Krone"
+format:
+    pdf:
+        papersize: a4
+        include-in-header:
+            text: |
+                \usepackage{graphicx} % Required for inserting images
+                \usepackage[a4paper, total={6in, 10in}]{geometry}
+                \usepackage{amsmath}
+                \usepackage{amsfonts}
+                \usepackage{amssymb}
+                \usepackage{mathtools}
+                \usepackage[makeroom]{cancel}
+                \usepackage{hyperref}
+                \usepackage{tikz}
+                \usetikzlibrary{positioning, arrows.meta, fit, backgrounds}
+                \setlength{\parindent}{0pt}          
+execute:
+    freeze: auto    
+---
+
+\section*{Task 1}
+
+\subsection*{(a)}
+We consider a time series of observations $y_1, ..., y_T, \ T \in \mathbb{N}_{\ge1}$. We are now interested in formulating a complete probabilistic model for a Bayesian version of Holt's linear trend model for the data at hand. We are provided with the following setup for $t = 2,...,T$ in the hand-in modality \cite{Hoehle2026}:
+
+\begin{align}
+    y_t &= l_{t-1} + b_{t-1} + \varepsilon_t \\
+    l_t &= l_{t-1} + b_{t-1} + \alpha \varepsilon_t \\
+    b_t &= b_{t-1} + \beta \varepsilon_t
+\end{align}
+
+We further know $\varepsilon_t \overset{\text{iid}}{\sim} \mathcal{N}(0, \sigma^2)$. This corresponds to the \textit{Non-seasonal (damped) trend model} described in \cite{Smyl2025} with the choice $\phi = 1$. \newline
+
+Right away we can make several observations:
+\begin{enumerate}
+    \item[(i)] $l_t, b_t$ are real-valued random variables that are recursively defined from the the values of the previous time step.
+    \item[(ii)] Due to (i) it is easy to see that the variables $b_1$ and $l_1$ are unknown and therefore have to be fit from the data.
+    \item[(iii)] Furthermore, the values of $\alpha$, $\beta$ and $\sigma$ in the model are also unknown and have to be fit using the data. 
+\end{enumerate}
+
+From this we can write down the following probabilistic model for $t = 2,..., T$:
+
+\begin{align}
+    y_t \ | \ l_{t-1}, b_{t-1}, \sigma &\sim \mathcal{N}(l_{t-1} + b_{t-1}, \sigma^2) \\
+    l_t \ | \ l_{t-1}, b_{t-1},\alpha, \sigma &\sim \mathcal{N}(l_{t-1} + b_{t-1}, \alpha^2 \sigma^2) \\
+    b_t \ | \ b_{t-1}, \beta, \sigma &\sim \mathcal{N}(b_{t-1}, \beta^2 \sigma^2)
+\end{align}
+
+These dynamics can also be represented graphically in a DAG (Directed Acyclic Graph):
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+    scale=0.60, transform shape,
+    node distance=1.4cm and 2.5cm,
+    >=Latex,
+    % Node styles
+    latent/.style={circle, draw=black, thick, minimum size=11mm, font=\large},
+    obs/.style={circle, draw=black, fill=gray!25, thick, minimum size=11mm, font=\large},
+    param/.style={circle, draw=black, fill=black, inner sep=0pt, minimum size=1.5mm},
+    arrow/.style={->, >=Latex, thick},
+    paramarrow/.style={->, >=Latex, thick, gray!80!black},
+    sigmaarrow/.style={->, >=Latex, semithick, gray!50}
+]
+
+    % --- Time Step 2 ---
+    \node[latent] (l2) {$l_2$};
+    \node[obs, below=1.4cm of l2] (y2) {$y_2$};
+    \node[latent, below=1.4cm of y2] (b2) {$b_2$};
+
+    % --- Time Step 1 (Initial States) ---
+    \node[latent, left=of l2] (l1) {$l_1$};
+    \node[latent, left=of b2] (b1) {$b_1$};
+
+    % --- Time Step 3 ---
+    \node[latent, right=of l2] (l3) {$l_3$};
+    \node[obs, right=of y2] (y3) {$y_3$};
+    \node[latent, right=of b2] (b3) {$b_3$};
+
+    % --- Continuation Dots ---
+    \node[right=1.0cm of l3] (dots_l) {$\dots$};
+    \node[right=1.0cm of y3] (dots_y) {$\dots$};
+    \node[right=1.0cm of b3] (dots_b) {$\dots$};
+
+    % --- Final Time Step T ---
+    \node[latent, right=1.0cm of dots_l] (lT) {$l_T$};
+    \node[obs, right=1.0cm of dots_y] (yT) {$y_T$};
+    \node[latent, right=1.0cm of dots_b] (bT) {$b_T$};
+
+    % --- Parameters ---
+    \node[param, label=above:$\alpha$, above=1.5cm of l3] (alpha) {};
+    \node[param, label=below:$\beta$, below=1.5cm of b3] (beta) {};
+    
+    % Sigma shifted far to the left of the l1/b1 initial state column
+    \node[param, label=left:$\sigma$, left=7.5cm of y2] (sigma) {};
+
+    % --- Dynamic Dependency Edges ---
+    % Step 1 to Step 2
+    \draw[arrow] (l1) -- (l2);
+    \draw[arrow] (b1) -- (b2);
+    \draw[arrow] (l1) -- (y2);
+    \draw[arrow] (b1) -- (y2);
+    \draw[arrow] (b1) to[out=40, in=220] (l2);
+
+    % Step 2 to Step 3
+    \draw[arrow] (l2) -- (l3);
+    \draw[arrow] (b2) -- (b3);
+    \draw[arrow] (l2) -- (y3);
+    \draw[arrow] (b2) -- (y3);
+    \draw[arrow] (b2) to[out=40, in=220] (l3);
+
+    % Transitions into Continuation Dots
+    \draw[arrow, dashed] (l3) -- (dots_l);
+    \draw[arrow, dashed] (b3) -- (dots_b);
+    \draw[arrow, dashed] (l3) -- (dots_y);
+    \draw[arrow, dashed] (b3) -- (dots_y);
+
+    % Transitions out of Continuation Dots into Step T
+    \draw[arrow, dashed] (dots_l) -- (lT);
+    \draw[arrow, dashed] (dots_b) -- (bT);
+    \draw[arrow, dashed] (dots_l) -- (yT);
+    \draw[arrow, dashed] (dots_b) -- (yT);
+
+    % --- Alpha & Beta Parameter Edges ---
+    \draw[paramarrow] (alpha) -- (l2);
+    \draw[paramarrow] (alpha) -- (l3);
+    \draw[paramarrow] (alpha) -- (lT);
+
+    \draw[paramarrow] (beta) -- (b2);
+    \draw[paramarrow] (beta) -- (b3);
+    \draw[paramarrow] (beta) -- (bT);
+
+    % --- Sigma Parameter Edges (Routing cleanly around the initial states) ---
+    % Observation connections (passing straight through the central horizontal corridor)
+    \draw[sigmaarrow] (sigma) -- (y2);
+    \draw[sigmaarrow] (sigma) to[out=16, in=164] (y3);
+    \draw[sigmaarrow] (sigma) to[out=-16, in=196] (yT);
+
+    % Level state connections (routing smoothly over l1)
+    \draw[sigmaarrow] (sigma) to[out=60, in=160] (l2);
+    \draw[sigmaarrow] (sigma) to[out=70, in=155] (l3);
+    \draw[sigmaarrow] (sigma) to[out=90, in=130] (lT);
+
+    % Trend state connections (routing smoothly under b1)
+    \draw[sigmaarrow] (sigma) to[out=-60, in=-160] (b2);
+    \draw[sigmaarrow] (sigma) to[out=-70, in=-155] (b3);
+    \draw[sigmaarrow] (sigma) to[out=-90, in=-130] (bT);
+
+\end{tikzpicture}
+\caption{Directed Acyclic Graph for the Bayesian version of Holt's linear trend model \cite{A1}}
+\end{figure}
+
+\newpage
+
+We now also want to select priors for our five unknown variables: $l_1, b_1, \alpha, \beta$ and $\sigma$. \newline 
+The choice for $\alpha$ and $\beta$ are quite clear as we do not have any prior information on them and their domain is the interval $(0, 1)$. A uniform distribution on this interval is therefore a very natural choice. \newline
+For the other three variables we have to make some more educated choices as their domains are not finite. For $\sigma$ we assume that the error is going to be on the same scale as the data which is usually approximated relatively well using the standard deviation. We will therefore choose an exponential prior for $\sigma$ with an initial parameter of $\frac{1}{\hat{\sigma}}$ as this gives us a proper prior on the infinite domain $(0, \infty)$. Lastly, we have to choose priors on $(-\infty, \infty)$ for $l_1$ and $b_1$. We will choose both of these to be normally distributed with a standard deviation given by the empirical standard deviation of our data set. Furthermore, we will choose the prior for $l_1$ to be centered around the first data point as this should give a good approximation for the initial level. Furthermore, we will center $b_1$ around $0$ to ensure we do not introduce a prior trend to the movement of our data. One should remark that a more detailed analysis for initial values might want to take such a trend into account. In total this would look as follow:
+
+\begin{align}
+    \alpha &\sim \text{Unif}(0, 1) \\
+    \beta &\sim \text{Unif}(0, 1) \\
+    \sigma &\sim \text{Exp}(\frac{1}{\hat{\sigma}}) \\
+    l_1 &\sim \mathcal{N} (y_1, \hat{\sigma}^2) \\
+    b_1 &\sim \mathcal{N} (0, \hat{\sigma}^2) 
+\end{align}
+
+\newpage
+
+\subsection*{(b)}
+
+We are now interested in taking a look at the data set we will use the previously constructed probabilistic model on: the Global Mean Sea Level \cite{GMSL}. Plotting the time series using \textit{ggplot2} \cite{ggplot2} looks as follows:
+
+\small
+```{r}
+library(ggplot2)
+
+data <- read.table("data.txt", header=FALSE, col.names=c("Time", "MeanLevel"))
+
+ggplot(data, aes(x = Time, y = MeanLevel)) +
+    geom_point(color = "darkblue", size=0.5) +
+    theme_minimal() +
+    labs(title = "Global Mean Sea Level", x = "Year", y = "Mean Sea Level [mm]")
+```
+\normalsize
+
+There are several issues with this data set in relation to the previously established probabilistic model. 
+
+\begin{enumerate}
+    \item[(i)] Rather than providing annual data, the data set provides us with several data points for each year. We will therefore have to average the different mean sea level data points for each year to obtain a singular representative value.
+    \item[(ii)] Furthermore, the year 2026 has not concluded yet. Including its partial data would therefore not necessarily be representative for the entire year. Hence, we will omit it from the data.
+    \item[(iii)] The data is not dimensionless and has a scale that we are not familiar with. It is therefore going to be easier to deal with a normalized and centred time series. We shall therefore define the following transformation for our data: $\tilde{y_i} = \frac{y_i - \hat{\mu}}{\hat{\sigma}}$. Importantly this will fix our empirical standard deviation to $1$. We therefore have to update our priors to fit this data set which is not an issue.
+\end{enumerate}
+
+We will now implement these two data transformations:
+
+\small
+```{r}
+min_year = floor(min(data$Time))
+max_year = floor(max(data$Time))
+
+years = c()
+data_coarse = c()
+temp_y = min_year
+temp_d = c()
+for (i in 1:(length(data$Time))) {
+    if ((temp_y != floor(data$Time[i])) || (i == length(data$Time))) {
+        years = c(years, temp_y)
+        data_coarse = c(data_coarse, mean(temp_d))
+        temp_y = floor(data$Time[i])
+        temp_d = c()
+    }
+    temp_d = c(temp_d, data$MeanLevel[i])
+}
+
+data_new <- data.frame(Year = years[1:(length(years)-1)], 
+                       MeanLevel = data_coarse[1:(length(data_coarse)-1)])
+
+data_mean = mean(data_new$MeanLevel)
+data_sd = sd(data_new$MeanLevel)
+
+data_new$TransformedMeanLevel <- (data_new$MeanLevel - data_mean) / data_sd
+
+ggplot(data_new, aes(x = Year, y = TransformedMeanLevel)) +
+    geom_point(color = "darkblue", size=0.5) +
+    theme_minimal() +
+    labs(title = "Global Mean Sea Level - Transformed", x = "Year",
+         y = "Transformed Mean Sea Level")
+```
+\normalsize
+
+\newpage
+
+\subsection*{(c)}
+
+We now want to implement the previously discussed model using STAN and the cmdstanr interface for R \cite{stan}. For this we have to write a STAN program which implements the previously introduced probabilistic models and our priors. Doing this yields the following: 
+
+```{r}
+#| output: false
+library(cmdstanr)
+
+stan_code <- "data {
+    int T;
+    array[T] real y;
+    real lambda;
+}
+
+parameters {
+    array[T-1] real l;
+    array[T-1] real b;
+    real l1;
+    real b1;
+    real<lower=0, upper=1> alpha;
+    real<lower=0, upper=1> beta;
+    real<lower=0> sigma;
+}
+
+model {
+    alpha ~ uniform(0, 1);
+    beta ~ uniform(0, 1);
+    sigma ~ exponential(lambda);
+    l1 ~ normal(y[1], 1);
+    b1 ~ normal(0, 1);
+    b[1] ~ normal(b1, beta*sigma);
+    l[1] ~ normal(l1 + b1, alpha*sigma);
+    y[2] ~ normal(l1 + b1, sigma);
+    for (t in 2:(T-1)) {
+        b[t] ~ normal(b[t-1], beta*sigma);
+        l[t] ~ normal(l[t-1] + b[t-1], alpha*sigma);
+        y[t+1] ~ normal(l[t-1] + b[t-1], sigma);
+    }
+}
+
+// the following is not important until task (e)
+generated quantities {
+    real y_pred = normal_rng(l[T-1] + b[T-1], sigma);
+}
+"
+
+model <- cmdstan_model(write_stan_file(code = stan_code, dir = "./",
+                                       basename = "Holt"))
+```
+
+We can sample from this distribution as follows:
+
+```{r}
+#| output: false
+data_list = list(T = (length(data_new$Year)),
+                 y = data_new$TransformedMeanLevel, lambda=1)
+
+fit <- model$sample(
+                    data = data_list,
+                    seed = 0,
+                    chains = 4,
+                    iter_warmup = 1000,
+                    iter_sampling = 1000,
+                    refresh = 500)
+```
+
+We can now look at a summary of our 5 parameters of interest to see some first results:
+
+```{r}
+fit$summary(c("alpha", "beta", "sigma", "l1", "b1"))
+```
+
+From this summary we can already gain a lot of information about our parameters and the convergence and effectiveness of the sampling. Firstly, we will take a look at the parameters themselves, we can extract the following: 
+
+\begin{align}
+    \hat{\mu}_{\alpha} &= 0.617, \ \ \hat{\sigma}_{\alpha} = 0.257, \ \ C_{90, \alpha} = (0.161, 0.969) \\
+    \hat{\mu}_{\beta} &= 0.306, \ \ \hat{\sigma}_{\beta} = 0.215, \ \ C_{90, \beta} = (0.0588, 0.755) \\
+    \hat{\mu}_{\sigma} &= 0.057, \ \ \hat{\sigma}_{\sigma} = 0.010, \ \ C_{90, \sigma} = (0.0426, 0.0758) \\
+    \hat{\mu}_{l_1} &= -1.58, \ \ \hat{\sigma}_{l_1} = 0.069, \ \ C_{90, l_1} = (-1.69, -1.47) \\
+    \hat{\mu}_{b_1} &= 0.108, \ \ \hat{\sigma}_{b_1} = 0.035, \ \ C_{90, b_1} = (0.0590, 0.174) 
+\end{align}
+
+Here $C_{90, x}$ is the 90\% credible set for the parameter $x$. \newline
+
+Next up we will also take a look at the effectiveness and convergence of our simulation. For this we can first take a look at the $\hat{R}$ statistics we discussed in the lecture \cite{Hoehle2026-2}. We know that this value being close 1 indicates convergence. A well-known rule-of-thumb is the following: if $\hat{R}$ is below a threshold of $\hat{R} < 1.1$, the converge is adequate. From the summary we can tell that the $\hat{R}$-values for our parameters are well below this threshold which indicates an adequate convergence. As it is nice to get a visual idea of the convergence as well we will take a look at the draw plot of one of the parameters:
+
+```{r}
+plot(fit$draws("sigma"), type="o")
+```
+
+This plot also does not indicate any direct trends which seems to confirm the convergence statistic $\hat{R}$.
+
+\subsection*{(d)}
+
+We are now interested in visualizing our data and plot it against the real world data. For this we calculate the estimate for the annual mean sea level using $\hat{y}_{t} = l_{t-1} + b_{t-1}$. We can then plot the real world data from the year 1993 (one year after the data starts as our model does not predict 1992) up to 2025 against our model's predictions. Doing this yields the following:
+
+```{r}
+ls = c(fit$summary("l1")$mean, fit$summary("l")$mean)
+bs = c(fit$summary("b1")$mean, fit$summary("b")$mean)
+ys = ls + bs
+
+d_data = data.frame(N=data_new$Year[2:34],
+                    series=data_new$TransformedMeanLevel[2:34],
+                    model=ys[1:33])
+
+ggplot(d_data, aes(x = N)) +
+  geom_point(aes(y = series, color = "series")) +
+  geom_point(aes(y = model, color = "model")) +
+  scale_color_manual(values = c("series" = "green", "model" = "red")) +
+  theme_minimal() +
+  labs(x = "Year", y = "Transformed Mean Sea Level")
+```
+
+From this we can visually see that the Bayesian version of Holt's linear trend model that we implemented does a relatively good job at tracking the actual mean sea level given from the time series. There are certainly years where the prediction misses the mark by quite a bit, the overall trend of the model captures the mean sea level fairly well though. This becomes particularly clear if we consider that the model only consists of linear terms and does not incorporate non-linearity. \newline
+
+\subsection*{(e)}
+
+We are now interested in generating a forecast for the global mean sea level for the year 2026 which was itself not directly captured in our model as the data for the year has not fullly been collected yet. For this we go back to the following part of the STAN program which we did not use earlier:
+
+```{r}
+#| eval: false
+generated quantities {
+    real y_pred = normal_rng(l[T-1] + b[T-1], sigma);
+}
+```
+
+This tells STAN to calculate the $y_{2026}$ value from the given $l_{2025}$ and $l_{2025}$ from each realization and save them to our output data as well. We can therefore directly look at its summary using cmdstanr as well:
+
+```{r}
+fit$summary("y_pred")
+```
+
+This directly gives us a mean, standard deviation and 90\% credible interval that we can report. For our simulation that gives us the following predictive posterior summary:
+
+\begin{equation}
+    \hat{\mu}_{y_{2026}} = 1.88, \ \ \hat{\sigma}_{y_{2026}} = 0.098, \ \ C_{y_{2026}} = (1.72, 2.05)
+\end{equation}
+
+To interpret this data we can now invert the transformation we did earlier to get the following prediction of the mean sea level for the year 2026:
+
+```{r}
+y_pred_invtrafo = data.frame(
+                  mean = (data_sd * fit$summary("y_pred")$mean + data_mean),
+                  sd = data_sd * fit$summary("y_pred")$sd,
+                  q5 = (data_sd * fit$summary("y_pred")$q5 + data_mean),
+                  q95 = (data_sd * fit$summary("y_pred")$q95 + data_mean))
+
+y_pred_invtrafo
+```
+
+We can see that our model predicts the global mean sea level in 2026 to have the following predictive posterior summary:
+
+\begin{equation}
+    \hat{\mu}_{y_{2026}} = 96.778 \ \text{mm}, \ \ \hat{\sigma}_{y_{2026}} = 3.282 \ \text{mm}, \ \ C_{y_{2026}} = (91.414 \ \text{mm}, 102.291 \ \text{mm})
+\end{equation}
+
+We now additionally want to compare this prediction with the R package "forecast" \cite{forecast} to validate our model's prediction against an established forecasting package in the R ecosystem. We do this as follows:
+
+```{r}
+library(forecast)
+
+forecast::holt(data_new$MeanLevel, 
+                        h=1,
+                        damped=FALSE,
+                        level=c(90),
+                        initial="simple")
+```
+
+Here I chose to use \textit{h=1}, i.e. only 1 prediction step, \textit{damped=FALSE}, as our model assumes $\phi = 1$, \textit{level=c(90)}, as we are interested in the 90\% credible interval, and \textit{initial="simple"}, as \textit{initial="optimal"} does some more advanced calculations to estimate starting parameters which we did not do. It should be noted that even the \textit{simple} initial method uses more than just the very first data point to estimate the initial parameters and is therefore most likely quite far from our simulation as well. \newline
+
+We can see that the \textit{forecast::holt} method from the forecast R package estimates the global mean sea level for the year 2026 to be around 0.6 mm lower than our model did. Furthermore, it is more sure about this estimate than our implementation as the credible interval is smaller. Overall, both models do have a highly overlapping 90\% credible set meaning that their predictions do line-up well. 
+
+\newpage
+
+\subsection*{(f)}
+
+As an extension and improvement to the shortcommings of classical ETS models, such as them being not flexible enough in their form or that their error term is very restrictive and imposes strong assumptions, e.g. gaussian noise (\cite{Smyl2025} - Section 3), Smyl et al. propose the LGT (local \& global trend non-seasonal model) which makes several modifications to the classical ETS models such as Holt's linear trend model. The model is given by the following probabilistic model (\cite{Smyl2025} - Section 5):
+
+\begin{align}
+    y_{t+1} \sim t(\nu, \hat{y}_{t+1}, \hat{\sigma}_{t+1}) \\
+    \hat{y}_{t+1} = l_t + \gamma l_t^\rho + \lambda b_t \\
+    l_{t+1} = \alpha y_{t+1} + (1-\alpha) l_t \\
+    b_{t+1} = \beta (l_{t+1} - l_t) + (1 - \beta) b_t \\
+    \hat{\sigma}_{t+1} = \sigma \hat{y}_{t+1}^\tau + \xi
+\end{align}
+
+Here $t(\nu, m, s)$ is the Student t-distribution where $\nu$ describes the degrees of freedom of the distribution, $m$ describes the location, i.e. the mean, and $s$ is the scale, akin to but not identical to the standard deviation \cite{wiki1}. It is defined as follows:
+
+\begin{equation}
+    p(x \ | \ \nu, m, s) = \frac{\Gamma(\frac{\nu + 1}{2})}{\Gamma(\frac{\nu}{2}) \sqrt{\pi \nu} s} \left( 1 + \frac{1}{\nu} \left( \frac{x - m}{s} \right)^2 \right)^{- \frac{\nu + 1}{2}}
+\end{equation}
+
+This distribution is a generalization of the normal distribution and has the ability to capture heavier tail distributions through the $\nu$ parameter. The two limiting cases for $\nu$ are given by: $\nu \rightarrow \infty$ produces a normal distribution with mean $m$ and standard deviation $s$ while the case $\nu = 1$ produces the cauchy distribution with location $m$ and scale $s$. \newline
+
+In their paper Smyl et al. provide the following overview of the parameters that need to be estimated and their significance and meaning for the model:
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.5\linewidth]{smyl_table.png}
+    \caption{Table 1 - Parameters to be fitted for the LGT model from Smyl et al. \cite{Smyl2025}}
+\end{figure}
+
+Notable changes of this model in comparison to Holt's linear model are of course the usage of the Student t-distribution and the addition of the power coefficients for the global trend $\rho$ and for the error size $\tau$. \newline
+
+We are now intersted in using this model to analyse the global mean sea level time-series we have taken a look at with our own Bayesian implementation of Holt's linear trend model and the \textit{forecast::holt} function from the forecast R-package \cite{forecast} already. For this we will use the \textit{Rlgt::rlgt} function from the Rlgt R-package \cite{rlgt}.
+
+```{r}
+#| output: false
+library(Rlgt)
+
+set.seed(0)
+
+data_rlgt = data_new$MeanLevel + abs(min(data_new$MeanLevel))
+
+rlgt_model <- rlgt(data_rlgt, method="Stan",
+                   control=rlgt.control(MAX_NUM_OF_REPEATS=1,
+                                        NUM_OF_ITER=1000,
+                                        ADD_JITTER=FALSE,
+                                        NUM_OF_CHAINS=4,
+                                        NUM_OF_CORES=1))
+
+rlgt_forecast <- forecast(rlgt_model, h=1, level=c(90))
+```
+
+Here we created the entirely positive data of the mean sea level as required by the Rlgt R-package. Furthermore, we created an \textit{rlgtfit} object based on our data using STAN as a backend with simulation specifications matching our previous manual simulations of 1000 iterations and 4 chains. Additionally, I deactivated the additional jitter to ensure reproducibility as I'm unsure how it interacts with the global seed. We can now take a look at the forecast directly and shift the data back to reflect the true outcome:
+
+```{r}
+rlgt_forecast_df = data.frame(mean = rlgt_forecast$mean,
+                              q5 = rlgt_forecast$lower[, "5%"],
+                              q95 = rlgt_forecast$upper[, "95%"]) - 
+                              abs(min(data_new$MeanLevel))
+
+rlgt_forecast_df
+```
+
+This predictive posterior can be summarized as follows: 
+
+\begin{equation}
+    \hat{\mu}_{y_{2026}} = 96.093 \ \text{mm}, \ \ C_{y_{2026}} = (90.594 \ \text{mm}, 101.543 \ \text{mm})
+\end{equation}
+
+Furthermore, we will restate the results we got in (e) from the \textit{forecast::holt} function:
+
+\begin{equation}
+    \hat{\mu}_{y_{2026}} = 96.123 \ \text{mm}, \ \ C_{y_{2026}} = (91.478 \ \text{mm}, 100.767 \ \text{mm})
+\end{equation}
+
+When comparing these two we can see that the two means line up well. Things are slightly different when it comes to the 90\% credible intervals as the \textit{forecast::holt} function once again seems to be a lot more certain about its prediction as the credible interval is tighter. This is similar to our previous result with our manual implementation of Holt's linear model. This extra leeway in the credible interval might therefore be a result of taking further aspects of uncertainty into account in the Bayesian setting that are not taken into account in the implementation chosen for the \textit{forecast::holt} model.
+
+\newpage
+
+\section{Task 2}
+
+\subsection*{(a)}
+
+We are interested in drawing samples from a modified version of Rosenbrock's 2D distribution \cite{wiki2} given by the following expression:
+
+\begin{equation}
+    p(\theta) \propto \exp \left( - \frac{1}{20} \left[ 100(\theta_2 - \theta_1^2)^2 + (1 - \theta_1)^2\right] \right)
+\end{equation}
+
+Here the variable $c$ introduced in the hand-in modality \cite{Hoehle2026} has been set to $c=1$ as my student number is 178210. We now firstly want to take a look at what this distribution looks like visually using a contour plot \cite{A2}: 
+
+```{r}
+#| warning: false
+rb2d <- function(x, y) {
+    return( exp( -0.05 * ( 100*((y - x^2)^2) + (1 - x)^2 ) ) )
+}
+
+df_rb2d <- expand.grid(
+  x = seq(-1.75, 1.75, length.out = 1000),
+  y = seq(-0.75, 3, length.out = 1000)
+)
+df_rb2d$z <- rb2d(df_rb2d$x, df_rb2d$y)
+
+ggplot(df_rb2d, aes(x = x, y = y, z = z)) +
+    geom_contour_filled(breaks = c(0, 0.1, 0.5, 0.8, 0.9, 0.99, 1.0)) +
+    scale_color_viridis_c() +
+    theme_minimal() +
+    labs(title = "Contour Lines of p(x, y)")
+```
+
+This distribution is characterized by its maximum laying in a very long and narrow band and therefore leads to similar issues as the Rosenbrock function \cite{wiki2} in the case of minimization problems. Furthermore, sampling algorithms such as the Gibbs sampler that take steps in the different coordinates sequentially will struggle particularly hard with such a distribution as the shape of the maximum resembles a highly correlated distribution. This makes its traversal and therefore convergence slow. Lastly, the fact that there are two "arms" to the distribution adds the danger of a simulation run getting stuck in one of them and traversing it without ever spending any time in the other "arm".
+
+\subsection{(b)}
+
+We are now interested in determining the normalisation constant for our distribution $p(\theta)$. We can very easily do this using a numerical integration scheme provided by the \textit{cubature::pcubature} R-package \cite{cubature}. In theory this integration could also be done using a twofold application of the standard \textit{integrate} R-function or a pure R-library such as \textit{pracma} \cite{pracma} but I ended up deciding for this one due to how simple the implementation was for me:
+
+```{r}
+library(cubature)
+
+value = pcubature(function(x) rb2d(x[1], x[2]),
+                  lowerLimit=c(-Inf, -Inf),
+                  upperLimit=c(Inf, Inf))$integral
+print(value)
+print(2*pi)
+```
+
+As we can see the normalization constant for our function given by the \textit{cubature::pcubature} function is $6.283185$. For comparison I printed the value of $2 \pi$ which seems to line up with the numerical result fairly well. Obtaining a multiple of $\pi$ as a result for a 2-dimensional Gaussian-like function is not unexpected.
+
+\subsection*{(c)}
+
+We now want to sample from this distribution using a manually implemented MCMC sampler. For the previously stated reasons, I think a Gibbs sampler would be a bad choice for this distribution which is why I will implement the Metropolis-Hasting algorithm. For this we first have to implement the initial sampling logic in R. We do this as follows using the \textit{MASS} library which is built into the standalone R-binaries \cite{mass} and a very simple implementation of the multivariate normal distribution density:
+
+```{r}
+library(MASS)
+
+dmvnorm_base <- function(x, mean, sigma) {
+    d <- length(mean)
+    z <- x - mean
+    det_sigma <- det(sigma)
+
+    # solve(sigma, z) calculates the sigma^-1 * z 
+    exp(-0.5 * t(z) %*% solve(sigma, z)) /
+        sqrt((2 * pi)^d * det_sigma)
+}
+
+set.seed(0)
+
+metropolis_2d_chain <- function(N, p, Sigma, init) {
+    # this is to avoid a dimensional error regarding out
+    out = rbind(init, init)
+    for (i in 2:(N+1)) {
+        prop = mvrnorm(n = 1, mu = out[i, ], Sigma = Sigma)
+        q_forward  = dmvnorm_base(prop, out[i, ], Sigma)
+        q_backward = dmvnorm_base(out[i, ], prop, Sigma)
+        rate = min(c((p(prop[1], prop[2])/p(out[i, ][1], out[i, ][2])
+                   *q_backward/q_forward), 1))
+        if (runif(1) < rate) {
+            out = rbind(out, prop)
+        } else {
+            out = rbind(out, out[i, ])
+        }
+    }
+    return(out[2:(N+1), ])
+}
+
+init = c(0, 0)
+Sigma = matrix(c(1, 0, 0, 1), nrow=2, ncol=2)
+N = 1000
+
+test_run = metropolis_2d_chain(N, rb2d, Sigma, init)
+
+plot(test_run[, 1], type="o")
+
+length(unique(test_run)) / N
+```
+
+Here we have implemented a function \textit{metropolis\_2d\_chain} which creates a chain of N data points using the function $p$, which is equal to the probability density up to proportionality. The proposal density was chosen as a bivariate normal distribution with the initial mean $\mu$ and the covariance matrix $\Sigma$. We then also run a test simulation creating 100 samples from the modified Rosenbrock's 2d distribution using the following initial parameters for the proposal density:
+
+\begin{equation}
+    \mu = (0, 0)^T, \ \ \Sigma = \left(\begin{matrix} 1 & 0 \\ 0 & 1 \end{matrix}\right)
+\end{equation}
+
+We further plotted the $x$ ($\theta_1$) parameter of our sample chain and calculated the average acceptance rate. \newline
+
+From the generated data we can see that in this simulation the chain gets stuck in the left "arm" of the distribution and barely traverses the right "arm". Furthermore, by pure chance the acceptance rate is very close to the acceptance rate of $0.234$ that one should aim for according to Gelman et al. as discussed in the lecture slides \cite{Hoehle2026-2}. We will therefore use this initial parameter and covariance matrix for our next simulation of 250 data points as well and not spend a lot more time optimizing these parameters:
+
+```{r}
+set.seed(1)
+N = 250
+
+main_run = metropolis_2d_chain(N, rb2d, Sigma, init)
+
+length(unique(main_run)) / N
+```
+
+Once again we calculated the acceptance rate which is given by a value of $0.44$ here. This either means that the previous value of $0.22$ was an outlier of the average acceptance rate with the given covariance matrix and initial mean or that this simulation is an outlier, a more detailed analysis would be necessary to find more optimized starting values. \newline
+
+We can further visualize the traversal of the probability space as follows \cite{A3}:
+
+```{r}
+pts_df <- as.data.frame(main_run)
+colnames(pts_df) <- c("x", "y")
+
+ggplot(df_rb2d, aes(x = x, y = y)) +
+  geom_contour_filled(aes(z = z),
+                      breaks = c(0, 0.1, 0.5, 0.8, 0.9, 0.99, 1.0)) +
+  scale_fill_viridis_d() + 
+  geom_path(data = pts_df, aes(x = x, y = y),
+            color = "white", linewidth = 0.5,
+            alpha=0.6) +
+  geom_point(data = pts_df, aes(x = x, y = y), color = "red", size = 0.75) +
+    coord_cartesian(xlim = c(-1.75, 1.75), ylim = c(-0.75, 3)) +
+  theme_minimal() +
+  labs(title = "Contour Lines of p(x, y) and MCMC chain")
+```
+
+In the case of this plot the chain stays a lot closer to the maximum of the probability distribution at the start of the right "arm" of the distribution. Overall, the convergence of the simulations seem acceptable for the simplicity of the implementation, i.e. only using a simple Metropolis algorithm rather than a more advanced sampler like the NUTS sampler used by STAN \cite{wiki3}. 
+
+\newpage
+
+\section*{Task 3}
+
+\subsection*{(a)}
+
+We now revisit the milk testing example discussed in the lectures \cite{Hoehle2026-2}. Here we consider the following setup:
+
+\begin{itemize}
+    \item $n = 10$ cows
+    \item All milk has to be transported in one container
+    \item One cow's milk is worth $2€$
+    \item If one or more infected cow's milk is part of the batch it is worthless
+    \item The probability of infection per cow is $\delta = 0.007$ and it is assumed to be independent of the status of other cows and the previous days.
+    \item We consider an imperfect test with $\text{sens} = 0.99$ and $\text{spec} = 0.99$ with a price per test of $0.06 \ €$
+\end{itemize}
+
+We model this system as follows. The state of the cows can be described as a vector $\theta \in \{I, \bar{I}\}^{10}$, where $I$ means infected and $\bar{I}$ means not-infected. Furthermore, the data the farmer receives from a test is given by a vector $\textbf{y} \in \{p, n\}^{10}$, where $p$ means a test positive for the infection and $n$ means a test negative for the infection. Lastly, a possible action that can be taken by the farmer is a vector in the space $\textbf{a} \in \{\text{pour}, \text{toss}\}^{10}$, for the sake of notation let $\alpha_i$ be the ith unit vector of this space. In the case we are considering the farmer will then use the following decision rule:
+
+\begin{equation}
+    d(\textbf{y}) = \sum_{i = 1}^{10} (1_{\{y_i = p\}} \text{toss} +  1_{\{y_i = n\}} \text{pour}) \alpha_i
+\end{equation}
+
+We are now interested in calculating the Bayes risk for this decision rule. The Bayes risk is given by the following equation \cite{Hoehle2026-2}:
+
+\begin{equation}
+    r(G, d) = E_{\theta} E_{\textbf{y} | \theta} \left( \ell (\theta, d(\textbf{y}) \right)
+\end{equation}
+
+Here $G$ is the cumulative density function of the prior distribution of $\theta$. To calculate this we first have to write down a loss-function that quantifies the loss of a given action for a given state of reality. We will choose the following loss-function:
+
+\begin{equation}
+    \ell(\theta, \textbf{a}) = 0.6 + \min \left( 20, \  \sum_{i = 1}^{10} 1_{\{\theta_i = I\}} \left[ 2 \cdot 1_{\{a_i = \text{toss}\}} + 20 \cdot 1_{\{a_i = \text{pour}\}} \right] + 
+    1_{\{\theta_i = \bar{I}\}} \left[ 1_{\{a_i = \text{toss}\}} \right] \right)
+\end{equation}
+
+The loss function takes this form for the following reasons:
+
+\begin{itemize}
+    \item We assume a perfect day for the farmer, i.e. a profit of 20€ through the milk, to be a loss of 0.
+    \item By performing the tests the farmer automatically loses $10 \cdot 0.06€ = 0.6€$.
+    \item Per our definition the farmer cannot make a greater loss due to the cow milk than $20€$ which is the case if he either tosses it all out or pours the milk of at least one infected cow in.
+    \item Tossing the milk of a cow leads to a loss of $2€$ regardless of the state of infection of the cow.
+    \item Pouring the milk of a healthy cow does not lead to any losses while pouring the milk of an infected cow instantly leads to a maximal loss of $20€$ due to the milk.
+\end{itemize}
+
+As our state space and space of data sets is reasonable small, in this case $2^{10}$ for both and therefore multiplicatively $2^{20} = 1048576$. For this we now write down an explicit equation for the Bayes risk:
+
+\begin{equation}
+    r(G, d) = E_{\theta} E_{\theta | \textbf{y}} ( \ell (\theta, d(\textbf{y}))) =  \sum_{\theta \in \{I, \bar{I}\}^{10}} \sum_{\textbf{y} \in \{p, n\}^{10}} \ell (\theta, d(\textbf{y})) \prod_{i = 1}^{10} ( p(y_i \ | \ \theta_i) p(\theta_i) )
+\end{equation}
+
+\subsection*{(b)}
+
+We now want to implement an R program that calculates the Bayes risk of the previously introduced decision rule explicitly. For this we first implement the loss funciton in R:
+
+```{r}
+# theta: 0 - infected | 1 - not-infected
+# y:     0 - pos     | 1 - false
+l <- function(theta, y) {
+    s = 0
+    for (i in 1:10) {
+        if (theta[i] == 0) {
+            if (y[i] == 0) {
+                s = s + 2
+            } else {
+                s = s + 20
+            }
+        } else {
+            if (y[i] == 0) {
+                s = s + 2
+            }
+        }
+    }
+    return(0.6 + min(20, s))
+}
+```
+
+We now also implement a function that calculates the probability term of a given state and set of information:
+
+```{r}
+delta = 0.007
+sens = 0.99
+spec = 0.99
+
+p <- function(theta, y) {
+    out = 1
+    for (i in 1:10) {
+        if (theta[i] == 0) {
+            if (y[i] == 0) {
+                out = out*sens*delta
+            } else {
+                out = out*(1-sens)*delta
+            }
+        } else {
+            if (y[i] == 0) {
+                out = out*(1-spec)*(1-delta)
+            } else {
+                out = out*spec*(1-delta)
+            }
+        }
+    }
+    return(out)
+}
+```
+
+Lastly, we can explicitly calculate the Bayes risk as follows:
+
+```{r}
+bayes_risk = 0
+p_tot = 0
+
+#i: the different possible informations where y_k = i % 2^{k}, k=0,1,2,...
+#j: the different possible states where \theta_k = j % 2^{k}, k=0,1,2,...
+for (i in 0:(2^10 - 1)) {
+    c_info = as.integer(intToBits(i))[1:10]
+    for (j in 0:(2^10 - 1)) {
+        c_state = as.integer(intToBits(j))[1:10]
+        bayes_risk = bayes_risk + p(c_state, c_info)*l(c_state, c_info)
+        p_tot = p_tot + p(c_state, c_info)
+    }
+}
+    
+p_tot
+
+bayes_risk
+```
+
+The first output is a sanity check to make sure our probabilities sum up to 1 which they do. The second output is the actual Bayes risk of the decision rule the famer would choose given a set of information about their cows. We therefore know that using this decision rule the famer on average loses $0.951€$.
+
+\section*{(c)}
+
+We now want to see if the test is worth it in the first place. For this we have to calculate the Bayes risk for a given decision rule without any information. We can model this as the space of information being trivial, i.e. $y \in \{\text{no-information}\}$. It follows immediately that $p(y \ | \ \theta) = 1$ regardless of the actual $\theta$. We therefore get the following simplified expression for the Bayes risk for a given decision rule $d$:
+
+\begin{equation}
+    r(G, d) = E_{\theta} ( \ell (\theta, d)) =  \sum_{\theta \in \{I, \bar{I}\}^{10}} \ell (\theta, d) \prod_{i = 1}^{10} p(\theta_i) 
+\end{equation}
+
+We now only need to find the minimum over all the $2^{10}$ possible decision rules to figure out if using the test is worth it for the farmer. For this we first implement a function that calculates the loss for a given state and a given decision rule:
+
+```{r}
+# d:     0 - toss     | 1 - pour
+# theta: 0 - infected | 1 - not-infected
+ld <- function(d, theta) {
+    s = 0
+    for (i in 1:10) {
+        if (theta[i] == 0) {
+            if (d[i] == 0) {
+                s = s + 2
+            } else {
+                s = s + 20
+            }
+        } else {
+            if (d[i] == 0) {
+                s = s + 2
+            } 
+        }
+    }
+    return(min(20, s))
+}
+```
+
+Funnily enough, this function has almost the exact same definition as the one we had previously used for the farmer's decision rule. We now have to sum over all possible decision rules and keep track of the one that minimizes the Bayes risk:
+
+```{r}
+# initialization which will instantly be overwritten
+min_strategy = rep(-1, 10)
+cur_min = 100
+
+for (i in 0:(2^10 - 1)) {
+    c_strat = as.integer(intToBits(i))[1:10]
+    temp_tot = 0
+    for (j in 0:(2^10 - 1)) {
+        c_state = as.integer(intToBits(j))[1:10]
+        p_cur = 1
+        for (i in 1:10) {
+            if (c_state[i] == 0) {
+                p_cur = p_cur * delta
+            } else {
+                p_cur = p_cur * (1-delta)
+            }
+        }
+        temp_tot = temp_tot + ld(c_strat, c_state)*p_cur
+        p_tot = p_tot + p_cur
+    }
+    if (temp_tot < cur_min) {
+        cur_min = temp_tot
+        min_strategy = c_strat
+    }
+}
+
+cur_min
+c_strat
+```
+
+We can therefore see that the best possible strategy without any information from the test is to always keep all the milk and to hope that none of the cows are infected. We do find that this strategy without the test is a worse choice than using the test though as its Bayes risk is $1.357$, meaning that on average the farmer would lose $1.357€$ which is more than the first decision rule we looked at which used the availability of the test.
+
+\subsection*{(d)}
+
+We are now interested in extending this way of thinking to a large population of cows: $n=50$. We once again want to compare the two previously discussed decision rules: 
+
+\begin{enumerate}
+    \item[(i)] No-testing and always keeping the milk.
+    \item[(i)] Testing all cows, throwing out the milk of the ones with a positive test and keeping the milk of the ones with a negative test.
+\end{enumerate}
+
+We now want to determine what the maximum amount of money is the farmer would be willing to pay for the test. Obviously, a brute force approach is not possible in this case as $2^{50} \approx 1.13 \cdot 10^{15}$ is too large of a number of calculations to be acessible for a personal computer in a reasonable amount of time. We will therefore use a probabilistic approach: Monte Carlo Integration. \newline
+
+We already know that the Bayes risk for a given decision rule is given by the following equation:
+
+\begin{equation}
+    r(G, d) = E_{\theta} E_{\theta | \textbf{y}} ( \ell (\theta, d(\textbf{y}))) =  \sum_{\theta \in \{I, \bar{I}\}^{50}} \sum_{\textbf{y} \in \{p, n\}^{50}} \ell (\theta, d(\textbf{y})) \prod_{i = 1}^{50} ( p(y_i \ | \ \theta_i) p(\theta_i) )
+\end{equation}
+
+We know that we can approximate these integrals by drawing representative samples from the two variable spaces: $\theta_i \in \{I, \bar{I}\}^{50}, i = 1, 2,..., N_{\theta}$ and $\textbf{y}_i \in \{p, n\}^{50}, \ i = 1, 2,..., N_y$. Importantly we only have to do this for one given price of the test as the Bayes risk is linear in the price of the test. We then do the same thing for the Bayes risk without doing the tests, i.e. without any additional information. Here we only have to draw samples from the $\theta$ distribution. The equation for the Bayes risk for this is the following: 
+
+\begin{equation}
+    r(G, d) = E_{\theta} ( \ell (\theta, d)) =  \sum_{\theta \in \{I, \bar{I}\}^{50}} \ell (\theta, d) \prod_{i = 1}^{50} p(\theta_i) 
+\end{equation}
+
+We therefore get the following two Monte Carlo Integration equations: 
+
+\begin{align}
+    \hat{r}_{\text{test}}(G, d) &= \frac{1}{N_{\theta} N_y} \sum_{i = 1}^{N_{\theta}} \sum_{j = 1}^{N_y} \ell (\theta_i, d(\textbf{y}_j)) \\
+    \hat{r}_{\text{no-test}}(G, d) &= \frac{1}{N_{\theta}} \sum_{i = 1}^{N_{\theta}} \ell(\theta_i, d)
+\end{align}
+
+The code I used for this looks as follows. It is important to mention here that this code was optimized using Gemini 3.6 Flash \cite{A4}. All the comments as part of the code are my own though to ensure understanding of its function. My unoptimized code can be found in \hyperref[subsec:appendixA]{Appendix A}:
+
+```{r}
+# vectorized loss function for the no-test case
+loss_no_test <- function(d, theta) {
+    # for each toss (d == 0) we lose 2 euro
+    # for each pour (d == 1) while infected (theta == 1)
+    # we lose 20 euros
+    s <- sum(2 * (d == 0) + 20 * (theta == 0 & d == 1))
+    return(min(20, s))
+}
+
+# matrix version of the loss function for the test case
+# instead of doing a loop over N_y we do it as a 50 x N_y matrix
+loss_test <- function(theta, Y) {
+    
+    # everytime Y == 0 we toss and therefore lose 2 euro
+    # %*% is the matrix multiplication operator in R
+    base_cost <- (Y == 0) %*% rep(2, ncol(Y))
+  
+    # this mask identifies when a cow is infected
+    penalty_mask <- (theta == 0)
+
+    # we check if at any point of our matrix we keep (==1)
+    # even though the cow is infected (penalty_mask)
+    # drop = FALSE ensures that the object stays a matrix
+    penalty_cost <- (Y[, penalty_mask, drop = FALSE] == 1) %*%
+                    rep(20, sum(penalty_mask))
+
+    # we then return the minimum of the sum as a vector
+    # pmin computes an element wise minimum
+    s <- base_cost + penalty_cost
+    return(pmin(20, s)) 
+}
+
+N_theta <- 1e3
+N_y     <- 1e3
+n_obs   <- 50
+
+d_no_test <- rep(1, 50)
+losses_no_test <- numeric(N_theta)
+losses_test    <- numeric(N_theta * N_y)
+
+for (i in 1:N_theta) {
+    c_state <- rbinom(n = n_obs, size = 1, prob = 1 - delta)
+    losses_no_test[i] <- loss_no_test(d_no_test, c_state)
+
+    # we generate a vectorized version of the sensitivity
+    # and specificity of our state
+    p_vec <- ifelse(c_state == 0, 1 - sens, spec)
+
+    # we now generate N_y states for our drawn theta (c_state) 
+    c_info_matrix <- matrix(
+    rbinom(n = N_y * n_obs, size = 1, prob = rep(p_vec, each = N_y)),
+    nrow = N_y,
+    ncol = n_obs,
+    )
+
+    current_losses <- loss_test(c_state, c_info_matrix)
+
+    # we store the generated data in the correct parts of our output
+    idx_start <- (i - 1) * N_y + 1
+    idx_end   <- i * N_y
+    losses_test[idx_start:idx_end] <- current_losses
+}
+
+mean(losses_test)
+sd(losses_test)
+
+mean(losses_no_test)
+sd(losses_no_test)
+```
+
+We can see that the Bayes risk of always keeping the milk is around $6.16€$ and has an estimated standard deviation of $9.24€$. On the other hand the Bayes risk of testing with a free test is around $1.78€$ with an estimated standard deviation of $2.14€$. The standard deviations here are of course very high but we will focus on the mean for the following discussion for simplicity. We can therefore quite easily check when the test is not worth it anymore as we know that the Bayes risk has the following form:
+
+\begin{equation}
+    r(G, d, \text{price} = p) = r(G, d, \text{price} = 0) + 50p
+\end{equation}
+
+A small calculation therefore yields that the farmer would not buy the test anymore as soon as it cost more than $0.09€$.
+
+\subsection*{(e)}
+
+Lastly, we want to think about how we would expect the highest price the farmer is willing to pay for the test to change dependent on the parameters $\delta$ and $n$. \newline
+
+Firstly, we will think about $\delta$. As $\delta$ characterizes the probability of a given cow to be sick, we would expect increasing it to increase the highest price the farmer is willing to pay for the test while decreasing it in the opposite case. Increasing $\delta$ quite obviously has an increasing effect on the Bayes risk of the non-testing strategy as keeping milk can only worsen if the chance of a cow being sick increases. Furthermore, it increases the value of correctly selecting a sick cow which the farmer can achieve by using the test rather than not using it. There are therefore two primary effects at play that would most likely cause such a behavior. \newline
+
+Secondly, we will think about the parameter $n$. Increasing $n$ also directly worsens the non-testing strategy as the probability of any cow being sick is give n by:
+
+\begin{equation}
+    P(\ge 1 \text{ cow is sick}) = 1 - P(\text{no cow is sick}) = 1 - (1-\delta)^n
+\end{equation}
+
+As $1 - \delta$ is less than $1$ this probability approaches 1 for $n \rightarrow \infty$. Increasing the number of cows the farmer owns therefore increases the Bayes risk of the no-testing strategy. Importantly for this factor though, it also worsens the Bayes risk of the testing strategy for two primary reasons:
+
+\begin{enumerate}
+    \item[(i)] As we have seen the Bayes risk for the testing strategy for a given price $p$ is linear in $n$. Increasing $n$ therefore directly increases the Bayes risk.
+    \item[(ii)] Increasing the number of cows increases the number of possibilities for the test to give a false-positive or false-negative result. As these events also directly have a negative effect on the Bayes risk, I would expect this to negatively impact it as well.
+\end{enumerate}
+
+Deciding on the behavior due to a change in $n$ is therefore not as straight forward as in the case of $\delta$. Nevertheless, I would expect it to increase the highest price the farmer is willing to pay for the test as I expect the downsides to outweigh the upsides in most cases. \newline
+
+\newpage
+
+\begin{thebibliography}{99}
+
+\bibitem{Hoehle2026} Michael Höhle, "Tutorial Exam Lab - Bayesian Modelling" (course material, Institut für Mathematik und Informatik, Greifswald, Germany, 2026) 
+
+\bibitem{Hoehle2026-2} Michael Höhle, "Course Slides" (course material, Institut für Mathematik und Informatik, Greifswald, Germany, 2026) 
+
+\bibitem{Smyl2025} Smyl, Slawek, Christoph Bergmeir, Alexander Dokumentov, Xueying Long, Erwin Wibowo, and Daniel Schmidt. ‘Local and Global Trend Bayesian Exponential Smoothing Models’. International Journal of Forecasting 41, no. 1 (2025): 111–27. \href{https://doi.org/10.1016/j.ijforecast.2024.03.006.}{https://doi.org/10.1016/j.ijforecast.2024.03.006.}
+
+\bibitem{stan} Stan. ‘Stan’. Accessed 9 August 2026. \href{https://mc-stan.org/}{https://mc-stan.org/}.
+
+\bibitem{ggplot2} ‘Create Elegant Data Visualisations Using the Grammar of Graphics’. Accessed 9 August 2026. \href{https://ggplot2.tidyverse.org/}{https://ggplot2.tidyverse.org/}.
+
+\bibitem{GMSL} ‘Welcome | Sea Level Research Group’. Accessed 6 August 2026. \href{https://sealevel.colorado.edu/}{https://sealevel.colorado.edu/}.
+
+\bibitem{fpp2} Hyndman, R.J., \& Athanasopoulos, G. (2018) Forecasting: principles and practice, 2nd edition, OTexts: Melbourne, Australia. \href{OTexts.com/fpp2}{OTexts.com/fpp2}. Accessed on <08.08.2026>.
+
+\bibitem{forecast} Hyndman, Rob J. Robjhyndman/Forecast. R. 22 April 2012, released 6 August 2026. \href{https://github.com/robjhyndman/forecast}{https://github.com/robjhyndman/forecast}.
+
+\bibitem{rlgt} cbergmeir. Cbergmeir/Rlgt. R. 21 October 2018, released 29 May 2026. \href{https://github.com/cbergmeir/Rlgt}{https://github.com/cbergmeir/Rlgt}.
+
+\bibitem{wiki1} Wikipedia. ‘Student’s t-distribution’. 24 July 2026. \href{https://en.wikipedia.org/w/index.php?title=Student%27s_t-distribution&oldid=1365865339}{https://en.wikipedia.org/w/index.php?title=Student\%27s\_t-distribution\&oldid=1365865339}
+
+\bibitem{wiki2} Wikipedia. ‘Rosenbrock function’. 23 April 2026. \href{https://en.wikipedia.org/w/index.php?title=Rosenbrock_function&oldid=1350772152}{https://en.wikipedia.org/w/index.php?title=Rosenbrock\_function\&oldid=1350772152}.
+
+\bibitem{cubature} ‘Adaptive Multivariate Integration over Hypercubes’. Accessed 9 August 2026. \href{https://bnaras.github.io/cubature/}{https://bnaras.github.io/cubature/}.
+
+\bibitem{pracma} Borchers, Hans W. Pracma: Practical Numerical Math Functions. V. 2.4.6. Released 22 October 2025. \href{https://cran.r-project.org/web/packages/pracma/index.html}{https://cran.r-project.org/web/packages/pracma/index.html}.
+
+\bibitem{mass} Ripley, Brian, Bill Venables, Douglas M. Bates, Kurt Hornik (partial port ca 1998), Albrecht Gebhardt (partial port ca 1998), and David Firth (support functions for polr). MASS: Support Functions and Datasets for Venables and Ripley’s MASS. V. 7.3-66. Released 15 July 2026. \href{https://cran.r-project.org/web/packages/MASS/index.html}{https://cran.r-project.org/web/packages/MASS/index.html}.
+
+\bibitem{wiki3} Wikipedia. ‘Hamiltonian Monte Carlo’. 9 March 2026. \href{https://en.wikipedia.org/w/index.php?title=Hamiltonian_Monte_Carlo&oldid=1342547030}{https://en.wikipedia.org/w/index.php?title=Hamiltonian\_Monte\_Carlo\&oldid=1342547030}.
+
+\bibitem{wiki4} Wikipedia. ‘Law of total variance’. 9 March 2026. \href{https://en.wikipedia.org/w/index.php?title=Law_of_total_variance&oldid=1342453294}{https://en.wikipedia.org/w/index.php?title=Law\_of\_total\_variance\&oldid=1342453294}.
+
+\vspace{1cm}
+
+\bibitem[A1]{A1} This TikZ diagram was created using Gemini 3.6 Flash based on the following sketch I made and a back and forth corrections loop between me and the AI. I also adjusted some of the arrow spacing in the end, particularly for the arrows originating from the $\sigma$ parameter.
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.4\linewidth]{image.png}
+    \caption{Starting point for the TikZ diagram Gemini 3.6 Flash created}
+\end{figure}
+
+\bibitem[A2]{A2} The general outline of how to create a contour plot in R using ggplot2 was given by Gemini 3.6 Flash. I did have to further modify the code to fit my needs using the ggplot2 documentation.
+
+\bibitem[A3]{A3} I once again used Gemini 3.6 Flash to modify the previously introduced code for the contour plot to contain my point data and lines connecting sequential points.
+
+\bibitem[A4]{A4} I used Gemini 3.6 Flash to optimize my original code for this section as my code was unvectorized and ran incredibly slowly, even for a small number of samples such as 300. I removed all the comments Gemini 3.6 Flash included and added my own to ensure that I understand the code. The original code I gave Gemini 3.6 flash to optimize looked as follows \hyperref[subsec:appendixA]{Appendix A}.
+
+\end{thebibliography}
+
+\newpage
+
+\section{Appendix}
+
+\subsection{Appendix A: Original Code}
+\label{subsec:appendixA}
+
+```{r}
+#| echo: true
+#| eval: false
+loss_test <- function(theta, y) {
+    s = 0
+    for (i in 1:50) {
+        if (theta[i] == 0) {
+            if (y[i] == 0) {
+                s = s + 2
+            } else {
+                s = s + 20
+            }
+        } else {
+            if (y[i] == 0) {
+                s = s + 2
+            }
+        }
+    }
+    return(min(20, s))
+}
+
+loss_no_test <- function(d, theta) {
+    s = 0
+    for (i in 1:50) {
+        if (theta[i] == 0) {
+            if (d[i] == 0) {
+                s = s + 2
+            } else {
+                s = s + 20
+            }
+        } else {
+            if (d[i] == 0) {
+                s = s + 2
+            } 
+        }
+    }
+    return(min(20, s))
+}
+N_theta = 3e2
+N_y = 3e2
+
+# per our previous definition this is the decision rule of always
+# keeping all the milk
+d_no_test = rep(1, 50)
+losses_no_test = c()
+losses_test = c()
+
+for (i in 1:N_theta) {
+    c_state = rbinom(prob=(1-delta), n=50, size=1)
+    c_loss_no_test = loss_no_test(d_no_test, c_state)
+    losses_no_test = c(losses_no_test, c_loss_no_test)
+
+    for (j in 1:N_y) {
+       c_info = rep(-1, 50)
+        for (l in 1:50) {
+            if (c_state[l] == 0) {
+                c_info[l] = rbinom(prob=(1-sens), n=1, size=1)
+            } else {
+                c_info[l] = rbinom(prob=spec, n=1, size=1)
+            }
+        }
+        c_loss_test = loss_test(c_state, c_info)
+        losses_test = c(losses_test, c_loss_test)
+    }
+}
+
+mean(losses_test)
+sd(losses_test)
+
+mean(losses_no_test)
+sd(losses_no_test)
+```
+
